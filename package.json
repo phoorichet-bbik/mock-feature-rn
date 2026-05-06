@@ -12,9 +12,9 @@
     "url": "https://github.com/phoorichet-bbik/mock-feature-rn.git"
   },
   "peerDependencies": {
-    "expo-file-system": "*",
-    "expo-media-library": "*",
-    "react": "*",
-    "react-native": "*"
+    "expo-file-system": ">=19.0.0",
+    "expo-media-library": ">=17.0.0",
+    "react": ">=18.0.0",
+    "react-native": ">=0.73.0"
   }
 }
