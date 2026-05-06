@@ -1,4 +1,4 @@
-import { createDownloadResumable, deleteAsync, documentDirectory, downloadAsync, getInfoAsync } from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system/next';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useState } from 'react';
 import {
@@ -18,14 +18,16 @@ const SAMPLE_VIDEO_URL = 'https://samplelib.com/mp4/sample-5s.mp4';
 
 type MediaStatus = 'idle' | 'requesting' | 'downloading' | 'saving' | 'done' | 'denied' | 'error';
 
-function docFilePath(name: string): string {
-  const base = documentDirectory ?? '';
-  return `${base.endsWith('/') ? base : `${base}/`}${name}`;
-}
-
 async function requestPermission(): Promise<boolean> {
   const { status } = await MediaLibrary.requestPermissionsAsync();
   return status === 'granted';
+}
+
+async function downloadToFile(url: string, file: File): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const buffer = await response.arrayBuffer();
+  file.write(new Uint8Array(buffer));
 }
 
 export default function SaveMediaScreen() {
@@ -35,9 +37,6 @@ export default function SaveMediaScreen() {
   const [imageError, setImageError] = useState('');
   const [videoStatus, setVideoStatus] = useState<MediaStatus>('idle');
   const [videoError, setVideoError] = useState('');
-  const [videoProgress, setVideoProgress] = useState(0);
-
-  console.log('videoError', videoError);
 
   const s = makeStyles(theme.primaryColor, theme.backgroundColor, theme.surfaceColor, theme.textColor, theme.textSecondaryColor);
 
@@ -48,27 +47,21 @@ export default function SaveMediaScreen() {
       setImageStatus('denied');
       return;
     }
-    const dest = docFilePath(`poc_image_${Date.now()}.jpg`);
+    const file = new File(Paths.document, `poc_image_${Date.now()}.jpg`);
     try {
       setImageStatus('downloading');
-      const result = await downloadAsync(SAMPLE_IMAGE_URL, dest);
-      if (result.status !== 200) {
-        throw new Error(`Download failed: HTTP ${result.status}`);
-      }
-      const info = await getInfoAsync(dest);
-      if (!info.exists || info.size === 0) {
+      await downloadToFile(SAMPLE_IMAGE_URL, file);
+      if (!file.exists || file.size === 0) {
         throw new Error('Downloaded file is empty or missing');
       }
       setImageStatus('saving');
-      await MediaLibrary.saveToLibraryAsync(dest);
+      await MediaLibrary.saveToLibraryAsync(file.uri);
       setImageStatus('done');
-    }
-    catch (e) {
+    } catch (e) {
       setImageStatus('error');
       setImageError(e instanceof Error ? e.message : String(e));
-    }
-    finally {
-      await deleteAsync(dest, { idempotent: true });
+    } finally {
+      if (file.exists) file.delete();
     }
   }
 
@@ -79,38 +72,21 @@ export default function SaveMediaScreen() {
       setVideoStatus('denied');
       return;
     }
-    const dest = docFilePath(`poc_video_${Date.now()}.mp4`);
+    const file = new File(Paths.document, `poc_video_${Date.now()}.mp4`);
     try {
-      setVideoProgress(0);
       setVideoStatus('downloading');
-      const task = createDownloadResumable(
-        SAMPLE_VIDEO_URL,
-        dest,
-        {},
-        ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-          if (totalBytesExpectedToWrite > 0) {
-            setVideoProgress(Math.round((totalBytesWritten / totalBytesExpectedToWrite) * 100));
-          }
-        },
-      );
-      const result = await task.downloadAsync();
-      if (!result || result.status !== 200) {
-        throw new Error(`Download failed: HTTP ${result?.status ?? 'unknown'}`);
-      }
-      const info = await getInfoAsync(dest);
-      if (!info.exists || info.size === 0) {
+      await downloadToFile(SAMPLE_VIDEO_URL, file);
+      if (!file.exists || file.size === 0) {
         throw new Error('Downloaded file is empty or missing');
       }
       setVideoStatus('saving');
-      await MediaLibrary.saveToLibraryAsync(dest);
+      await MediaLibrary.saveToLibraryAsync(file.uri);
       setVideoStatus('done');
-    }
-    catch (e) {
+    } catch (e) {
       setVideoStatus('error');
       setVideoError(e instanceof Error ? e.message : String(e));
-    }
-    finally {
-      await deleteAsync(dest, { idempotent: true });
+    } finally {
+      if (file.exists) file.delete();
     }
   }
 
@@ -143,10 +119,14 @@ export default function SaveMediaScreen() {
           {SAMPLE_IMAGE_URL}
         </Text>
 
-        <StatusBadge status={imageStatus} progress={null} errorMessage={imageError} colors={theme} />
+        <StatusBadge status={imageStatus} errorMessage={imageError} colors={theme} />
 
         <TouchableOpacity
-          style={[s.btn, { backgroundColor: theme.primaryColor }, imageStatus === 'downloading' || imageStatus === 'saving' || imageStatus === 'requesting' ? s.btnDisabled : undefined]}
+          style={[
+            s.btn,
+            { backgroundColor: theme.primaryColor },
+            ['requesting', 'downloading', 'saving'].includes(imageStatus) ? s.btnDisabled : undefined,
+          ]}
           onPress={handleSaveImage}
           disabled={['requesting', 'downloading', 'saving'].includes(imageStatus)}
           accessibilityRole="button"
@@ -169,16 +149,14 @@ export default function SaveMediaScreen() {
           </Text>
         </View>
 
-        <StatusBadge status={videoStatus} progress={videoProgress} errorMessage={videoError} colors={theme} />
-
-        {videoStatus === 'downloading' && (
-          <View style={s.progressBarTrack}>
-            <View style={[s.progressBarFill, { width: `${videoProgress}%` as any, backgroundColor: theme.primaryColor }]} />
-          </View>
-        )}
+        <StatusBadge status={videoStatus} errorMessage={videoError} colors={theme} />
 
         <TouchableOpacity
-          style={[s.btn, { backgroundColor: theme.primaryColor }, videoStatus === 'downloading' || videoStatus === 'saving' || videoStatus === 'requesting' ? s.btnDisabled : undefined]}
+          style={[
+            s.btn,
+            { backgroundColor: theme.primaryColor },
+            ['requesting', 'downloading', 'saving'].includes(videoStatus) ? s.btnDisabled : undefined,
+          ]}
           onPress={handleSaveVideo}
           disabled={['requesting', 'downloading', 'saving'].includes(videoStatus)}
           accessibilityRole="button"
@@ -217,19 +195,15 @@ const STATUS_LABEL: Record<MediaStatus, string> = {
 
 function StatusBadge({
   status,
-  progress,
   errorMessage,
   colors,
 }: {
   status: MediaStatus;
-  progress: number | null;
   errorMessage?: string;
   colors: { primaryColor: string; textSecondaryColor: string };
 }) {
   if (status === 'idle') return null;
-  const label = status === 'downloading' && progress !== null
-    ? `Downloading… ${progress}%`
-    : STATUS_LABEL[status];
+  const label = STATUS_LABEL[status];
   const detail = status === 'error' && errorMessage ? `\n${errorMessage}` : '';
 
   return (
@@ -287,16 +261,6 @@ function makeStyles(
     },
     videoIcon: { fontSize: 32 },
     urlText: { fontSize: 11 },
-    progressBarTrack: {
-      height: 6,
-      backgroundColor: '#e5e7eb',
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    progressBarFill: {
-      height: 6,
-      borderRadius: 3,
-    },
     btn: {
       borderRadius: 10,
       padding: 14,
