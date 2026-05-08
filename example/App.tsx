@@ -55,11 +55,12 @@ export default function App() {
       userEmail: 'demo@example.com',
     },
     navigation: {
-      pushToDetail: (itemId, itemTitle) => {
-        navRef.current?.navigate('Detail', { itemId, itemTitle });
-      },
-      pushToSaveMedia: () => {
-        navRef.current?.navigate('SaveMedia');
+      push: (slug, params) => {
+        if (slug === 'detail' && params) {
+          navRef.current?.navigate('Detail', { itemId: params.itemId, itemTitle: params.itemTitle });
+        } else if (slug === 'save-media') {
+          navRef.current?.navigate('SaveMedia');
+        }
       },
       goBack: () => {
         navRef.current?.goBack();

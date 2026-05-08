@@ -71,7 +71,7 @@ export default function FeatureHomeScreen() {
           <TouchableOpacity
             key={post.id}
             style={[s.postCard, { backgroundColor: theme.surfaceColor }]}
-            onPress={() => navigation.pushToDetail(String(post.id), post.title)}
+            onPress={() => navigation.push('detail', { itemId: String(post.id), itemTitle: post.title })}
             accessibilityRole="button"
             accessibilityLabel={post.title}
           >
@@ -91,7 +91,7 @@ export default function FeatureHomeScreen() {
       {/* ── POC: Native modules — save image/video from remote package ── */}
       <TouchableOpacity
         style={[s.saveMediaBtn, { backgroundColor: theme.primaryColor }]}
-        onPress={navigation.pushToSaveMedia}
+        onPress={() => navigation.push('save-media')}
         accessibilityRole="button"
         accessibilityLabel="Try save image and video"
       >

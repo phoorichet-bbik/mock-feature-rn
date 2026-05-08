@@ -4,3 +4,5 @@ export { default as FeatureHomeScreen } from './screens/FeatureHomeScreen';
 export { default as FeatureDetailScreen } from './screens/FeatureDetailScreen';
 export type { FeatureDetailScreenProps } from './screens/FeatureDetailScreen';
 export { default as SaveMediaScreen } from './screens/SaveMediaScreen';
+export { SCREEN_REGISTRY } from './registry';
+export type { ScreenEntry } from './registry';

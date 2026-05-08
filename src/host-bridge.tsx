@@ -21,10 +21,8 @@ export interface HostConfig {
 }
 
 export interface HostNavigation {
-  /** Push to the feature's detail screen */
-  pushToDetail: (itemId: string, itemTitle: string) => void;
-  /** Push to the save media screen */
-  pushToSaveMedia: () => void;
+  /** Push to any screen within this feature by slug, with optional params */
+  push: (slug: string, params?: Record<string, string>) => void;
   /** Go back one step (works within the feature stack) */
   goBack: () => void;
   /** Pop entirely back to the main app (exit the feature) */
